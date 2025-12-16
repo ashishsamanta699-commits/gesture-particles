@@ -3,9 +3,34 @@
 <head>
   <meta charset="UTF-8" />
   <title>Hand Controlled 3D Particles</title>
+
+  <!-- Mobile important -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+
   <style>
-    body { margin: 0; overflow: hidden; background: black; }
-    canvas { display: block; }
+    body {
+      margin: 0;
+      overflow: hidden;
+      background: black;
+      font-family: Arial, sans-serif;
+    }
+
+    canvas {
+      display: block;
+    }
+
+    #startBtn {
+      position: fixed;
+      top: 20px;
+      left: 20px;
+      z-index: 10;
+      padding: 12px 16px;
+      font-size: 14px;
+      border: none;
+      border-radius: 6px;
+      background: #ff0066;
+      color: white;
+    }
   </style>
 
   <!-- Three.js -->
@@ -18,8 +43,10 @@
 
 <body>
 
+<button id="startBtn">Start Camera</button>
+
 <script>
-/* ---------------- THREE.JS SETUP ---------------- */
+/* ================= THREE.JS SETUP ================= */
 
 const scene = new THREE.Scene();
 
@@ -33,23 +60,25 @@ camera.position.z = 6;
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
 document.body.appendChild(renderer.domElement);
 
-/* ---------------- PARTICLES ---------------- */
+/* ================= PARTICLES ================= */
 
-const COUNT = 10000;
+const COUNT = 6000; // mobile friendly
 const geometry = new THREE.BufferGeometry();
+
 const positions = new Float32Array(COUNT * 3);
 const colors = new Float32Array(COUNT * 3);
 
 for (let i = 0; i < COUNT; i++) {
-  positions[i*3] = (Math.random() - 0.5) * 4;
-  positions[i*3+1] = (Math.random() - 0.5) * 4;
-  positions[i*3+2] = (Math.random() - 0.5) * 4;
+  positions[i * 3]     = (Math.random() - 0.5) * 4;
+  positions[i * 3 + 1] = (Math.random() - 0.5) * 4;
+  positions[i * 3 + 2] = (Math.random() - 0.5) * 4;
 
-  colors[i*3] = Math.random();
-  colors[i*3+1] = Math.random();
-  colors[i*3+2] = Math.random();
+  colors[i * 3]     = Math.random();
+  colors[i * 3 + 1] = Math.random();
+  colors[i * 3 + 2] = Math.random();
 }
 
 geometry.setAttribute("position", new THREE.BufferAttribute(positions, 3));
@@ -64,10 +93,13 @@ const material = new THREE.PointsMaterial({
 const particles = new THREE.Points(geometry, material);
 scene.add(particles);
 
-/* ---------------- HAND TRACKING ---------------- */
+/* ================= HAND TRACKING ================= */
 
 const video = document.createElement("video");
 video.style.display = "none";
+video.setAttribute("playsinline", "");
+video.setAttribute("muted", "");
+video.setAttribute("autoplay", "");
 document.body.appendChild(video);
 
 const hands = new Hands({
@@ -77,53 +109,66 @@ const hands = new Hands({
 
 hands.setOptions({
   maxNumHands: 1,
+  modelComplexity: 1,
   minDetectionConfidence: 0.7,
   minTrackingConfidence: 0.7
 });
 
 hands.onResults(results => {
-  if (!results.multiHandLandmarks.length) return;
+  if (!results.multiHandLandmarks || results.multiHandLandmarks.length === 0) return;
 
   const hand = results.multiHandLandmarks[0];
   const thumb = hand[4];
   const index = hand[8];
 
-  // Pinch distance
   const pinch = Math.hypot(
     thumb.x - index.x,
     thumb.y - index.y
   );
 
-  // Color change when pinched
+  // Scale particles with hand openness
+  const scale = THREE.MathUtils.clamp(1 + (1 - pinch) * 2, 0.8, 3);
+  particles.scale.setScalar(scale);
+
+  // Change color on pinch
   if (pinch < 0.05) {
     material.color.setHSL(Math.random(), 1, 0.6);
   }
-
-  // Expand particles based on hand openness
-  particles.scale.setScalar(1 + (1 - pinch));
 });
 
-/* ---------------- CAMERA INPUT ---------------- */
+/* ================= CAMERA (MOBILE SAFE) ================= */
 
 const cam = new Camera(video, {
   onFrame: async () => {
     await hands.send({ image: video });
   },
   width: 640,
-  height: 480
+  height: 480,
+  facingMode: "environment" // rear camera
 });
-cam.start();
 
-/* ---------------- ANIMATION LOOP ---------------- */
+document.getElementById("startBtn").onclick = () => {
+  cam.start();
+  document.getElementById("startBtn").remove();
+};
+
+/* ================= ANIMATION ================= */
 
 function animate() {
   requestAnimationFrame(animate);
   particles.rotation.y += 0.002;
   renderer.render(scene, camera);
 }
-
 animate();
 
+/* ================= RESIZE ================= */
+
+window.addEventListener("resize", () => {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
 </script>
+
 </body>
 </html>
