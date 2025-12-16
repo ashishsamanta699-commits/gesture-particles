@@ -1,39 +1,44 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
+const scene = new THREE.Scene();
 
-  <!-- IMPORTANT for mobile -->
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+const camera = new THREE.PerspectiveCamera(
+  60,
+  window.innerWidth / window.innerHeight,
+  0.1,
+  100
+);
+camera.position.z = 5;
 
-  <title>Gesture Particles</title>
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
+document.body.appendChild(renderer.domElement);
 
-  <style>
-    body {
-      margin: 0;
-      overflow: hidden;
-      background: #000;
-    }
+// Simple test geometry
+const geometry = new THREE.BufferGeometry();
+const count = 2000;
+const positions = new Float32Array(count * 3);
 
-    video {
-      display: none;
-    }
-  </style>
-</head>
-<body>
+for (let i = 0; i < count * 3; i++) {
+  positions[i] = (Math.random() - 0.5) * 5;
+}
 
-  <!-- Camera video (hidden) -->
-  <video id="video" autoplay playsinline></video>
+geometry.setAttribute(
+  "position",
+  new THREE.BufferAttribute(positions, 3)
+);
 
-  <!-- Three.js -->
-  <script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+const material = new THREE.PointsMaterial({
+  color: 0xff0066,
+  size: 0.03
+});
 
-  <!-- MediaPipe Hands -->
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+const points = new THREE.Points(geometry, material);
+scene.add(points);
 
-  <!-- Your main JS file -->
-  <script type="module" src="./main.js"></script>
+function animate() {
+  requestAnimationFrame(animate);
+  points.rotation.y += 0.002;
+  renderer.render(scene, camera);
+}
 
-</body>
-</html>
+animate();
